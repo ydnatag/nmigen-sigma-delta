@@ -1,4 +1,5 @@
-from nmigen import *
+from nmigen import Record
+
 
 class Stream(Record):
     def __init__(self, width, name, last=False):
@@ -20,7 +21,6 @@ class Stream(Record):
 
     def get_signals(self):
         return [self[field[0]] for field in self.layout]
-
 
     def accepted(self):
         return self.valid & self.ready
