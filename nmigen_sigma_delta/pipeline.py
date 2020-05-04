@@ -1,6 +1,7 @@
 from nmigen import Elaboratable, Module
 from .interfaces import Stream
 
+
 class _PipeElement(Elaboratable):
     def __init__(self, width, domain='sync'):
         self.width = width
@@ -29,4 +30,3 @@ class _PipeElement(Elaboratable):
                 sync += self.output.last.eq(self.input.last)
             except AttributeError:
                 pass
-
