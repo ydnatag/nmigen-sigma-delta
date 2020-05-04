@@ -115,10 +115,14 @@ class CIC(Elaboratable):
         m = Module()
         comb = m.d.comb
 
+        # Discaring bits without losing SNR
         discared = self.get_discared_bits()
         width = [self.b_max - d for d in [0] + discared]
+
         # I don't know why i'm having x2 gain. Adding another bit solves that.
         width = [w + 1 for w in width]
+
+        # adding width for the downsampler
         width = width[:self.order] + [width[self.order - 1]] + width[self.order:]
 
         _signals = [Signal(w) for w in width]
@@ -129,21 +133,15 @@ class CIC(Elaboratable):
 
         elements = integrators + [downsampler] + combs
         for n, element in enumerate(elements):
-            if isinstance(element, Comb):
-                name = f'comb_stage_{n}'
-            elif isinstance(element, Integrator):
-                name = f'integrator_stage_{n}'
-            else:
-                name = f'downsampler_stage_{n}'
-
+            name = element.__class__.__name__.lower() + f'_stage_{n}'
             m.submodules[name] = element
-
             w = len(_signals[n + 1])
             comb += [
                 element.input.data.eq(_signals[n]),
                 _signals[n + 1].eq(element.output.data[-w:])
             ]
 
+        # connecting handshake
         for i in range(1, len(elements)):
             comb += [
                 elements[i].input.valid.eq(elements[i - 1].output.valid),
