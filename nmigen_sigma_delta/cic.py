@@ -1,6 +1,8 @@
 from .interfaces import Stream
 from .pipeline import _PipeElement
-from math import log2, ceil, floor, comb
+from math import log2, ceil, floor
+from scipy.special import comb
+from numpy import convolve
 from nmigen import Module, Signal, Elaboratable
 
 
@@ -25,7 +27,7 @@ class Integrator(_PipeElement):
 
 class DownSampler(Elaboratable):
     def __init__(self, width, n, domain='sync'):
-        self.n = n - 1
+        self.n = n
         self.width = width
         self.domain = domain
         self.input = Stream(width, name='input')
@@ -46,7 +48,7 @@ class DownSampler(Elaboratable):
 
         with m.If(self.input.accepted()):
             sync += cnt.eq(cnt + 1)
-            with m.If(cnt >= self.n):
+            with m.If(cnt >= self.n - 1):
                 sync += [
                     cnt.eq(0),
                     self.output.data.eq(self.input.data),
@@ -76,6 +78,21 @@ class CIC(Elaboratable):
         self._N = self.order
         self._M = 1
         self.b_max = ceil(self.order * log2(self._R * self._M) + self.i_width - 1)
+
+    def get_impulsive_response(self):
+        moving_average = [1] * self.decimation
+        h = 1
+        for _ in range(self.order):
+            h = convolve(h, moving_average)
+        return h
+
+    def get_gain(self):
+        gain = self.decimation**self.order
+        if self.o_width >= self.i_width:
+            shift = ceil(self.order * log2(self.decimation)) - (self.o_width - self.i_width)
+        else:
+            shift = 0
+        return gain >> shift if shift > 0 else gain
 
     def get_discared_bits(self):
         R = self._R
@@ -123,7 +140,7 @@ class CIC(Elaboratable):
         width = [w + 1 for w in width]
 
         # adding width for the downsampler
-        width = width[:self.order] + [width[self.order - 1]] + width[self.order:]
+        width.insert(self.order - 1, width[self.order - 1])
 
         _signals = [Signal(w) for w in width]
 
