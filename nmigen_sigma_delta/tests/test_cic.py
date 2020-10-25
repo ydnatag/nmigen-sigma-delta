@@ -1,4 +1,5 @@
-from nmigen.back.pysim import Simulator
+import os
+from nmigen.sim import Simulator
 from nmigen_sigma_delta.cic import CIC
 import random
 import math
@@ -6,11 +7,12 @@ import numpy as np
 import pytest
 
 def run_sim(dut, data, n):
-    sim = Simulator(dut)
+    sim = Simulator(dut, engine=os.getenv('NMIGEN_SIM', 'pysim'))
     sim.add_clock(10e-9, domain='sync')
     sim.add_sync_process(dut.input.send_driver(data))
     sim.add_sync_process(dut.output.recv_driver(n))
-    sim.run()
+    with sim.write_vcd('bla.vcd'):
+        sim.run()
 
 def test_paper_result():
     discared = CIC(4, 25, 16, 16).get_discared_bits()
